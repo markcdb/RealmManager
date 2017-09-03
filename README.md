@@ -110,5 +110,5 @@ or if you have the object and not need to map it:
         //Code goes here
     })
 ```
-[0]: https://cocoapods.org/?q=realmswift  "Realm Swift"
+[0]: https://cocoapods.org/pods/RealmSwift  "Realm Swift"
 
