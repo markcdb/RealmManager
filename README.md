@@ -9,7 +9,7 @@ A threaded and easier way of persisting data using Realm Mobile Database
 
 You can simply use this method to add or update an object to an existing model
 
-##### Note: I'm treating each object is unique, thus the model needs to have a primaryKey
+##### Note: I'm treating each object as unique, thus the model needs to have a primaryKey
  
 ```swift
     RealmManager.addOrUpdate(model: "MODEL_NAME", 
