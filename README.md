@@ -1,5 +1,5 @@
 # RealmManager
-An threaded and easier way of persisting data using Realm Mobile Database
+A threaded and easier way of persisting data using Realm Mobile Database
 
 ## Installation
 
