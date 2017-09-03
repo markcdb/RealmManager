@@ -2,6 +2,36 @@
 A threaded and easier way of persisting data using Realm Mobile Database
 
 ## Installation
+### CocoaPods
+
+[CocoaPods](http://cocoapods.org) is a dependency manager for Cocoa projects. You can install it with the following command:
+
+```bash
+$ gem install cocoapods
+```
+
+> CocoaPods 1.1.0+ is required to build RealmManager 1.0.0+.
+
+To integrate RealmManager into your Xcode project using CocoaPods, specify it in your `Podfile`:
+
+```ruby
+source 'https://github.com/CocoaPods/Specs.git'
+platform :ios, '10.0'
+use_frameworks!
+
+target '<Your Target Name>' do
+    pod 'RealmManager', '~> 1.0.0'
+end
+```
+
+Then, run the following command:
+
+```bash
+$ pod install
+```
+### Manually
+
+If you prefer not to use any of the aforementioned dependency managers, you can integrate RealmManager into your project manually.
 
 ## Usage
 
@@ -78,7 +108,3 @@ or if you have the object and not need to map it:
         //Code goes here
     })
 ```
-
-
-
-
