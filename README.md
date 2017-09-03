@@ -110,5 +110,15 @@ or if you have the object and not need to map it:
         //Code goes here
     })
 ```
+
+
+## Author
+
+Mark Christian, mark.buot1394@gmail.com
+
+## License
+
+RealmManager is available under the MIT license. See the LICENSE file for more info.
+
 [0]: https://cocoapods.org/pods/RealmSwift  "Realm Swift"
 
