@@ -1,6 +1,8 @@
 # RealmManager
 A threaded and easier way of persisting data using Realm Mobile Database
 
+Uses [RealmSwift][0]
+
 ## Installation
 ### CocoaPods
 
@@ -39,7 +41,7 @@ If you prefer not to use any of the aforementioned dependency managers, you can 
 
 You can simply use this method to add or update an object to an existing model
 
-##### Note: I'm treating each object as unique, thus the model needs to have a primaryKey
+##### Note: This repo assumes each object as unique, thus the model needs to have a primaryKey
  
 ```swift
     RealmManager.addOrUpdate(model: "MODEL_NAME", 
@@ -108,3 +110,5 @@ or if you have the object and not need to map it:
         //Code goes here
     })
 ```
+[0]: https://cocoapods.org/?q=realmswift  "Realm Swift"
+
