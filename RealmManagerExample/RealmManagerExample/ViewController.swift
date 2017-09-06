@@ -58,6 +58,7 @@ class ViewController: UIViewController {
         }
         //Fetches all objects inside 'Message' model class
         RealmManager.fetch(model: "Message", condition: nil, completionHandler: { (result) in
+            
             for message in result {
                 if let msg = message as? Message {
                     self.arrMessage?.append(msg)
