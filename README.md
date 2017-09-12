@@ -22,7 +22,7 @@ platform :ios, '10.0'
 use_frameworks!
 
 target '<Your Target Name>' do
-    pod 'RealmManager', '~> 1.0.7'
+    pod 'RealmManager', '~> 1.0.8'
 end
 ```
 
