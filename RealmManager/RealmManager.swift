@@ -49,7 +49,7 @@ public class RealmManager {
     /// - Parameter completionHandler: Closure called after
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    class func addOrUpdate<T>(configuration: Realm.Configuration, model: String, object: T, completionHandler:@escaping(_ error: Error?) -> Void) {
+    public class func addOrUpdate<T>(configuration: Realm.Configuration, model: String, object: T, completionHandler:@escaping(_ error: Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             
             let realm = try! Realm(configuration: configuration)
@@ -71,7 +71,7 @@ public class RealmManager {
     /// - Parameter completionHandler: Closure called after
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    class func addOrUpdate<T>(model: String, object: T, completionHandler:@escaping(_ error: Error?) -> Void) {
+    public class func addOrUpdate<T>(model: String, object: T, completionHandler:@escaping(_ error: Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let realm = try! Realm()
             
@@ -94,7 +94,7 @@ public class RealmManager {
     /// - warning: threading for this function shall be user's preference because
     /// completion handler returns a Realm Object, which requires to be on the
     /// same thread where the realm instance is called
-    class func fetch(configuration: Realm.Configuration, model: String, condition: String?, completionHandler:@escaping(_ result: Results<Object>) -> Void) {
+    public class func fetch(configuration: Realm.Configuration, model: String, condition: String?, completionHandler:@escaping(_ result: Results<Object>) -> Void) {
         let realm = try! Realm(configuration: configuration)
         
         fetchWithRealm(model: model, realm: realm, condition: condition, completionHandler: completionHandler)
@@ -114,7 +114,7 @@ public class RealmManager {
     /// - warning: threading for this function shall be user's preference because
     /// completion handler returns a Realm Object, which requires to be on the
     /// same thread where the realm instance is called
-    class func fetch(model: String, condition: String?, completionHandler:@escaping(_ result: Results<Object>) -> Void) {
+    public class func fetch(model: String, condition: String?, completionHandler:@escaping(_ result: Results<Object>) -> Void) {
         let realm = try! Realm()
         
         fetchWithRealm(model: model, realm: realm, condition: condition, completionHandler: completionHandler)
@@ -130,7 +130,7 @@ public class RealmManager {
     /// - Parameter completionHandler: Closure called after the
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    class func delete(configuration: Realm.Configuration, model: String, condition: String, completionHandler:@escaping(_ error: Error?) -> Void) {
+    public class func delete(configuration: Realm.Configuration, model: String, condition: String, completionHandler:@escaping(_ error: Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let realm = try! Realm(configuration: configuration)
             
@@ -147,7 +147,7 @@ public class RealmManager {
     /// - Parameter completionHandler: Closure called after the
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    class func delete(model: String, condition: String, completionHandler:@escaping(_ error: Error?) -> Void) {
+    public class func delete(model: String, condition: String, completionHandler:@escaping(_ error: Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let realm = try! Realm()
             
@@ -163,7 +163,7 @@ public class RealmManager {
     /// - Parameter completionHandler: Closure called after the
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    class func deleteObject(configuration: Realm.Configuration, object: Object, completionHandler:@escaping(_ error: Error?) -> Void ) {
+    public class func deleteObject(configuration: Realm.Configuration, object: Object, completionHandler:@escaping(_ error: Error?) -> Void ) {
         DispatchQueue.global(qos: .userInitiated).async {
             let realm = try! Realm(configuration: configuration)
             
@@ -178,7 +178,7 @@ public class RealmManager {
     /// - Parameter completionHandler: Closure called after the
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    class func deleteObject(object: Object, completionHandler:@escaping(_ error: Error?) -> Void) {
+    public class func deleteObject(object: Object, completionHandler:@escaping(_ error: Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let realm = try! Realm()
             
