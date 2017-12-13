@@ -2,7 +2,7 @@ Pod::Spec.new do |s|
   s.name             = 'RealmManager'
   s.version          = '1.0.8'
   s.summary          = 'An easier way of persisting data using Realm Mobile Database'
-  s.dependency         'RealmSwift', '~> 2.6.2'
+  s.dependency         'RealmSwift'
   s.homepage         = 'https://github.com/markcdb/RealmManager'
   s.license          = { :type => 'MIT', :file => 'LICENSE' }
   s.author           = { 'markcdb' => 'mark.buot1394@gmail.com' }
