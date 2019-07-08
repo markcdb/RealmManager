@@ -24,7 +24,7 @@ class ViewController: UIViewController {
         let saveAction = UIAlertAction(title: "Save", style: .default, handler: { _ in
             
             let message = alertController.textFields?[0].text
-            self.perform(#selector(saveMessage(message:)), with: message)
+            self.perform(#selector(self.saveMessage(message:)), with: message)
         })
         
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel, handler: nil)
@@ -127,7 +127,7 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
         return 60
     }
     
-    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCellEditingStyle, forRowAt indexPath: IndexPath) {
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
             // Delete the row from the data source
             if let arM = arrMessage {

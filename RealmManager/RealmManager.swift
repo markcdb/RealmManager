@@ -253,7 +253,7 @@ extension RealmManager {
                 
                 group.enter()
                 
-                for properties in Mirror(reflecting: obj).children.flatMap({$0.label}) {
+                for properties in Mirror(reflecting: obj).children.compactMap({$0.label}) {
                     //loops property list array
                     //and sets value accordingly
                     obj.setValue(dicE[properties], forKey: properties)
@@ -274,7 +274,7 @@ extension RealmManager {
                 //creates an instance of model as NSObject (for now)
                 
                 group.enter()
-                for properties in Mirror(reflecting: obj).children.flatMap({$0.label}) {
+                for properties in Mirror(reflecting: obj).children.compactMap({$0.label}) {
                     //loops property list array
                     //and sets value accordingly
                     obj.setValue(anyE.value(forKey: properties) , forKey: properties)
