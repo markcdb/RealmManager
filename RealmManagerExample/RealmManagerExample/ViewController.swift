@@ -57,7 +57,7 @@ class ViewController: UIViewController {
             arrMessage?.removeAll()
         }
         //Fetches all objects inside 'Message' model class
-        RealmManager.fetch(model: "Message", condition: nil, completionHandler: { (result) in
+        RealmManager.fetch(model: "Message", condition: nil, completion: { (result) in
             
             for message in result {
                 if let msg = message as? Message {
@@ -78,7 +78,8 @@ class ViewController: UIViewController {
          and then we called RealmManager.addOrUpdate and passed the msg as parameter for the
          insertion of the new data to 'Message' model class
          */
-        RealmManager.addOrUpdate(model: "Message", object: msg, completionHandler: { (error) in
+        
+        RealmManager.addOrUpdate(object: [msg], completion: { (error) in
             if let err = error {
                 print("Error \(err.localizedDescription)")
             } else {
@@ -136,7 +137,7 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
                  providing a predicate and passing it to condition: parameter, if found a match,
                  it will  delete the object inside the realmdb
                  */
-                RealmManager.delete(model: "Message", condition: "content == '\(arM[indexPath.row].value(forKey: "content") as! String)'", completionHandler: { (error) in
+                RealmManager.delete(condition: "content == '\(arM[indexPath.row].value(forKey: "content") as! String)'", completion: { (error) in
                     if let err = error {
                         
                         print(err.localizedDescription)

@@ -48,7 +48,7 @@
 // - What version of OS X it's running on (in case Xcode aggressively drops
 //   support for older versions again, we need to know what we need to support).
 // - The minimum iOS/OS X version that the application is targeting (again, to
-//   help us decide what versions we need to support). 
+//   help us decide what versions we need to support).
 // - An anonymous MAC address and bundle ID to aggregate the other information on.
 // - What version of Swift is being used (if applicable).
 
@@ -72,7 +72,9 @@
 #import "RLMVersion.h"
 #endif
 
+#if REALM_ENABLE_SYNC
 #import <realm/sync/version.hpp>
+#endif
 
 // Declared for RealmSwiftObjectUtil
 @interface NSObject (SwiftVersion)
@@ -199,7 +201,9 @@ static NSDictionary *RLMAnalyticsPayload() {
                      @"Binding": @"cocoa",
                      @"Language": isSwift ? @"swift" : @"objc",
                      @"Realm Version": REALM_COCOA_VERSION,
+#if REALM_ENABLE_SYNC
                      @"Sync Version": @(REALM_SYNC_VER_STRING),
+#endif
 #if TARGET_OS_WATCH
                      @"Target OS Type": @"watchos",
 #elif TARGET_OS_TV

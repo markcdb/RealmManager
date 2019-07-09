@@ -35,6 +35,8 @@ import RealmSwift
  */
 public class RealmManager {
     
+    public typealias Completion = ((_ error: Error?) -> Void)
+    
     /// Add or Update an object to existing Model
     ///
     /// Can pass a Realm object, Dictionary, Array,
@@ -44,41 +46,56 @@ public class RealmManager {
     /// - Parameter configuration: Realm Configuration to be used
     /// - Parameter model: A string of any class NAME that inherits from 'Object' class
     /// - Parameter object: Object to be saved. 'object'
-    ///   can be of type [AnyHashable: Any], [Any], [Objects], 
-    ///   Object, or AnyObject
-    /// - Parameter completionHandler: Closure called after
+    ///   can be of type [Object], and Object
+    /// - Parameter completion: Closure called after
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    public class func addOrUpdate<T>(configuration: Realm.Configuration, model: String, object: T, completionHandler:@escaping(_ error: Error?) -> Void) {
+    public class func addOrUpdate<T: Collection>(configuration: Realm.Configuration? = nil,
+                                                 object: T,
+                                                 completion:@escaping Completion) where T.Element == Object {
+        
         DispatchQueue.global(qos: .userInitiated).async {
-            
-            let realm = try! Realm(configuration: configuration)
-
-            addOrUpdateWithRealm(realm: realm, model: model, object: object, completionHandler: completionHandler)
-        }
-    }
-
-    /// Creates or Update an existing Realm object
-    ///
-    /// Can pass a Realm object, Dictionary, Array,
-    /// or Array of objects, takes a closure as escaping
-    /// parameter.
-    ///
-    /// - Parameter model: A string of any class NAME that inherits from 'Object' class
-    /// - Parameter object: Object to be saved, 'object'
-    ///   can be of type [AnyHashable: Any], [Any], [Objects],
-    ///   Object, or AnyObject
-    /// - Parameter completionHandler: Closure called after
-    ///   realm transaction
-    /// - Parameter error: an optional value containing error
-    public class func addOrUpdate<T>(model: String, object: T, completionHandler:@escaping(_ error: Error?) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let realm = try! Realm()
-            
-            addOrUpdateWithRealm(realm: realm, model: model, object: object, completionHandler: completionHandler)
+            do {
+                var realm: Realm
+                
+                if let config = configuration {
+                    realm = try Realm(configuration: config)
+                } else {
+                    realm = try Realm()
+                }
+                
+                addOrUpdateWithRealm(realm: realm,
+                                     object: object,
+                                     completion: completion)
+            } catch let error {
+                completion(error)
+            }
         }
     }
     
+    public class func addOrUpdate<T: Object>(configuration: Realm.Configuration? = nil,
+                                             object: T,
+                                             completion: @escaping Completion) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            
+            do {
+                var realm: Realm
+                
+                if let config = configuration {
+                    realm = try Realm(configuration: config)
+                } else {
+                    realm = try Realm()
+                }
+                
+                addOrUpdateWithRealm(realm: realm,
+                                     object: object,
+                                     completion: completion)
+            } catch let error {
+                completion(error)
+            }
+        }
+    }
+
     /// Fetches object from existing model
     ///
     ///
@@ -86,7 +103,7 @@ public class RealmManager {
     /// - Parameter model: A string of any class NAME that inherits from 'Object' class
     /// - Parameter condition: Predicate to be used when fetching
     ///   data from the Realm database (Optional: String)
-    /// - Parameter completionHandler: Closure called after the
+    /// - Parameter completion: Closure called after the
     ///   realm transaction
     /// - Parameter result: An Array of Object as result from 
     ///   the fetching
@@ -94,10 +111,10 @@ public class RealmManager {
     /// - warning: threading for this function shall be user's preference because
     /// completion handler returns a Realm Object, which requires to be on the
     /// same thread where the realm instance is called
-    public class func fetch(configuration: Realm.Configuration, model: String, condition: String?, completionHandler:@escaping(_ result: Results<Object>) -> Void) {
+    public class func fetch(configuration: Realm.Configuration, model: String, condition: String?, completion:@escaping(_ result: Results<Object>) -> Void) {
         let realm = try! Realm(configuration: configuration)
         
-        fetchWithRealm(model: model, realm: realm, condition: condition, completionHandler: completionHandler)
+        fetchWithRealm(model: model, realm: realm, condition: condition, completion: completion)
     }
     
     /// Fetches object from existing model
@@ -106,7 +123,7 @@ public class RealmManager {
     /// - Parameter model: A string of any class NAME that inherits from 'Object' class
     /// - Parameter condition: Predicate to be used when fetching
     ///   data from the Realm database (Optional: String)
-    /// - Parameter completionHandler: Closure called after the
+    /// - Parameter completion: Closure called after the
     ///   realm transaction
     /// - Parameter result: An Array of Object as result from
     ///   the fetching
@@ -114,10 +131,10 @@ public class RealmManager {
     /// - warning: threading for this function shall be user's preference because
     /// completion handler returns a Realm Object, which requires to be on the
     /// same thread where the realm instance is called
-    public class func fetch(model: String, condition: String?, completionHandler:@escaping(_ result: Results<Object>) -> Void) {
+    public class func fetch(model: String, condition: String?, completion:@escaping(_ result: Results<Object>) -> Void) {
         let realm = try! Realm()
         
-        fetchWithRealm(model: model, realm: realm, condition: condition, completionHandler: completionHandler)
+        fetchWithRealm(model: model, realm: realm, condition: condition, completion: completion)
     }
     
     /// Deletes an object from the existing model
@@ -127,14 +144,17 @@ public class RealmManager {
     /// - Parameter model: A string of any class NAME that inherits from 'Object' class
     /// - Parameter condition: Predicate to be used when deleting
     ///   data from the Realm database (Optional: String)
-    /// - Parameter completionHandler: Closure called after the
+    /// - Parameter completion: Closure called after the
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    public class func delete(configuration: Realm.Configuration, model: String, condition: String, completionHandler:@escaping(_ error: Error?) -> Void) {
+    public class func delete(configuration: Realm.Configuration, model: String, condition: String, completion:@escaping(_ error: Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let realm = try! Realm(configuration: configuration)
             
-            deleteWithRealm(realm: realm, model: model, object: nil, condition: condition, completionHandler: completionHandler)
+            deleteWithRealm(realm: realm,
+                            object: nil,
+                            condition: condition,
+                            completion: completion)
         }
     }
 
@@ -144,14 +164,18 @@ public class RealmManager {
     /// - Parameter model: A string of any class NAME that inherits from 'Object' class
     /// - Parameter condition: Predicate to be used when deleting
     ///   data from the Realm database (Optional: String)
-    /// - Parameter completionHandler: Closure called after the
+    /// - Parameter completion: Closure called after the
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    public class func delete(model: String, condition: String, completionHandler:@escaping(_ error: Error?) -> Void) {
+    public class func delete(condition: String,
+                             completion:@escaping(_ error: Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let realm = try! Realm()
             
-            deleteWithRealm(realm: realm, model: model, object: nil, condition: condition, completionHandler: completionHandler)
+            deleteWithRealm(realm: realm,
+                            object: nil,
+                            condition: condition,
+                            completion: completion)
         }
     }
     
@@ -160,14 +184,17 @@ public class RealmManager {
     ///
     /// - Parameter configuration: Realm Configuration to be used
     /// - Parameter object: Object to be deleted
-    /// - Parameter completionHandler: Closure called after the
+    /// - Parameter completion: Closure called after the
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    public class func deleteObject(configuration: Realm.Configuration, object: Object, completionHandler:@escaping(_ error: Error?) -> Void ) {
+    public class func deleteObject(configuration: Realm.Configuration, object: Object, completion:@escaping(_ error: Error?) -> Void ) {
         DispatchQueue.global(qos: .userInitiated).async {
             let realm = try! Realm(configuration: configuration)
             
-            deleteWithRealm(realm: realm, model: nil, object: object, condition: nil, completionHandler: completionHandler)
+            deleteWithRealm(realm: realm,
+                            object: object,
+                            condition: nil,
+                            completion: completion)
         }
     }
     
@@ -175,21 +202,24 @@ public class RealmManager {
     ///
     ///
     /// - Parameter object: Object to be deleted
-    /// - Parameter completionHandler: Closure called after the
+    /// - Parameter completion: Closure called after the
     ///   realm transaction
     /// - Parameter error: an optional value containing error
-    public class func deleteObject(object: Object, completionHandler:@escaping(_ error: Error?) -> Void) {
+    public class func deleteObject(object: Object, completion:@escaping(_ error: Error?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let realm = try! Realm()
             
-            deleteWithRealm(realm: realm, model: nil, object: object, condition: nil, completionHandler: completionHandler)
+            deleteWithRealm(realm: realm,
+                            object: object,
+                            condition: nil,
+                            completion: completion)
         }
     }
 }
 
 extension RealmManager {
     ///MARK: FilePrivates
-    fileprivate class func fetchWithRealm(model: String, realm: Realm, condition: String?, completionHandler:@escaping(_ result: Results<Object>) -> Void) {
+    fileprivate class func fetchWithRealm(model: String, realm: Realm, condition: String?, completion:@escaping(_ result: Results<Object>) -> Void) {
         //NOTE: threading for this function shall be user's preference because
         //completion handler returns a Realm Object, which requires to be on the
         //same thread where the realm instance is called
@@ -202,102 +232,48 @@ extension RealmManager {
             fetchedObjects = fetchedObjects.filter(cond)
         }
         
-        completionHandler(fetchedObjects)
+        completion(fetchedObjects)
     }
     
-    fileprivate class func addOrUpdateWithRealm<T>(realm: Realm, model: String, object: T, completionHandler:@escaping(_ error: Error?) -> Void) {
-        let group = DispatchGroup()
-        var error: Error?
-        
-        if let objE = object as? Object {
-            // if object is an instance of Realm Object class
-            
-            group.enter()
-            //no need to do anything, proceed with
-            //write func
-            error = RealmManager.write(rlmObject: realm, writeBlock: {
-                //add func that requires model to have primaryKey
-                realm.add(objE, update: true)
-                group.leave()
-                //leaves group meaning whoever's waiting, he can do whatever
-                //he wants now
-            })
-            
-        } else if let arrE = object as? [Any] {
-            // if object is an instance Array containing Any
-            
-            if arrE is [Object] {
-                // if array is an instance of Array containing Objects
+    fileprivate class func addOrUpdateWithRealm<T: Collection>(realm: Realm,
+                                                   object: T,
+                                                   completion: @escaping Completion) where T.Element == Object  {
+        do {
+            try realm.write {
+                realm.add(object,
+                          update: .error)
                 
-                group.enter()
-                //no need to do anything, proceed with
-                //write func
-                error = write(rlmObject: realm, writeBlock: {
-                    //add func that requires model to have primaryKey
-                    realm.add(arrE as! [Object], update: true)
-                    group.leave()
-                    //do whatever pleases you
-                })
-                
-            } else {
-                for obj in arrE {
-                    //it's an array, validate each object, again.
-                    RealmManager.addOrUpdateWithRealm(realm: realm, model: model, object: obj, completionHandler: completionHandler)
+                DispatchQueue.main.async {
+                    completion(nil)
                 }
             }
-            
-        } else if let dicE = object as? [AnyHashable: Any] {
-            // if an object is an instance of Dictionary with AnyHashable key and Any as value
-            if let obj = (swiftClassFromString(className: model) as? NSObject.Type)?.init() {
-                //creates an instance of model as NSObject (for now)
-                
-                group.enter()
-                
-                for properties in Mirror(reflecting: obj).children.compactMap({$0.label}) {
-                    //loops property list array
-                    //and sets value accordingly
-                    obj.setValue(dicE[properties], forKey: properties)
-                }
-                
-                error = write(rlmObject: realm, writeBlock: {
-                    //add func that requires model to have primaryKey
-                    realm.add(obj as! Object, update: true)
-                    group.leave()
-                    // yeah, yeah.
-                })
-            }
-            
-        } else {
-            let anyE = object as AnyObject
-            
-            if let obj = (swiftClassFromString(className: model) as? NSObject.Type)?.init() {
-                //creates an instance of model as NSObject (for now)
-                
-                group.enter()
-                for properties in Mirror(reflecting: obj).children.compactMap({$0.label}) {
-                    //loops property list array
-                    //and sets value accordingly
-                    obj.setValue(anyE.value(forKey: properties) , forKey: properties)
-                }
-                
-                error = write(rlmObject: realm, writeBlock: {
-                    //add func that requires model to have primaryKey
-                    realm.add(obj as! Object, update: true)
-                    group.leave()
-                    // whatever.
-                })
+        } catch (let error) {
+            DispatchQueue.main.async {
+                completion(error)
             }
         }
-        
-        group.wait()
-        DispatchQueue.main.async {
-            //called after the transaction
-            completionHandler(error)
-        }
-        
     }
     
-    fileprivate class func deleteWithRealm(realm: Realm, model: String? , object: AnyObject?, condition: String?, completionHandler:@escaping(_ error: Error?) -> Void) {
+    fileprivate class func addOrUpdateWithRealm<T: Object>(realm: Realm,
+                                                               object: T,
+                                                               completion: @escaping Completion) {
+        do {
+            try realm.write {
+                realm.add(object,
+                          update: .error)
+                
+                DispatchQueue.main.async {
+                    completion(nil)
+                }
+            }
+        } catch (let error) {
+            DispatchQueue.main.async {
+                completion(error)
+            }
+        }
+    }
+    
+    fileprivate class func deleteWithRealm(realm: Realm, object: AnyObject?, condition: String?, completion:@escaping(_ error: Error?) -> Void) {
         let group = DispatchGroup()
         var error: Error?
         
@@ -324,6 +300,7 @@ extension RealmManager {
             // if object is an instance of Anything other that
             // previously stated types
             group.enter()
+            /*
             var fetchedObjects = realm.objects(swiftClassFromString(className: model!) as! Object.Type)
             
             if let cond = condition {
@@ -335,11 +312,12 @@ extension RealmManager {
                 realm.delete(fetchedObjects)
                 group.leave()
             })
+            */
         }
         
         group.wait()
         DispatchQueue.main.async {
-            completionHandler(error)
+            completion(error)
         }
     }
     

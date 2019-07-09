@@ -25,8 +25,10 @@
 #include <vector>
 
 namespace realm {
+class Descriptor;
 class Group;
 class Schema;
+enum class PropertyType: unsigned char;
 struct ObjectSchemaValidationException;
 struct Property;
 
@@ -47,6 +49,8 @@ public:
     std::vector<Property> computed_properties;
     std::string primary_key;
 
+    Property *property_for_public_name(StringData public_name);
+    const Property *property_for_public_name(StringData public_name) const;
     Property *property_for_name(StringData name);
     const Property *property_for_name(StringData name) const;
     Property *primary_key_property() {
@@ -60,6 +64,8 @@ public:
     void validate(Schema const& schema, std::vector<ObjectSchemaValidationException>& exceptions) const;
 
     friend bool operator==(ObjectSchema const& a, ObjectSchema const& b);
+
+    static PropertyType from_core_type(Descriptor const& table, size_t col);
 
 private:
     void set_primary_key_property();

@@ -32,6 +32,8 @@
 #include <memory>
 
 namespace realm {
+class AsyncOpenTask;
+class AuditInterface;
 class BindingContext;
 class Group;
 class Realm;
@@ -45,17 +47,21 @@ template <typename T> class ThreadSafeReference;
 struct VersionID;
 template<typename Table> class BasicRow;
 typedef BasicRow<Table> Row;
+template<typename> class BasicRowExpr;
+using RowExpr = BasicRowExpr<Table>;
 typedef std::shared_ptr<Realm> SharedRealm;
 typedef std::weak_ptr<Realm> WeakRealm;
 
 namespace _impl {
     class AnyHandover;
     class CollectionNotifier;
-    class ListNotifier;
-    class ObjectNotifier;
+    class PartialSyncHelper;
     class RealmCoordinator;
-    class ResultsNotifier;
     class RealmFriend;
+}
+namespace sync {
+    struct PermissionsCache;
+    struct TableInfoCache;
 }
 
 // How to handle update_schema() being called on a file which has
@@ -78,11 +84,26 @@ enum class SchemaMode : uint8_t {
     // identical.
     Automatic,
 
-    // Open the file in read-only mode. Schema version must match the
+    // Open the file in immutable mode. Schema version must match the
     // version in the file, and all tables present in the file must
     // exactly match the specified schema, except for indexes. Tables
     // are allowed to be missing from the file.
-    ReadOnly,
+    // WARNING: This is the original ReadOnly mode.
+    Immutable,
+
+    // Open the Realm in read-only mode, transactions are not allowed to
+    // be performed on the Realm instance. The schema of the existing Realm
+    // file won't be changed through this Realm instance. Extra tables and
+    // extra properties are allowed in the existing Realm schema. The
+    // difference of indexes is allowed as well. Other schema differences
+    // than those will cause an exception. This is different from Immutable
+    // mode, sync Realm can be opened with ReadOnly mode. Changes
+    // can be made to the Realm file through another writable Realm instance.
+    // Thus, notifications are also allowed in this mode.
+    // FIXME: Rename this to ReadOnly
+    // WARNING: This is not the original ReadOnly mode. The original ReadOnly
+    // has been renamed to Immutable.
+    ReadOnlyAlternative,
 
     // If the schema version matches and the only schema changes are new
     // tables and indexes being added or removed, apply the changes to
@@ -117,6 +138,23 @@ enum class SchemaMode : uint8_t {
     Manual
 };
 
+enum class ComputedPrivileges : uint8_t {
+    None = 0,
+
+    Read = (1 << 0),
+    Update = (1 << 1),
+    Delete = (1 << 2),
+    SetPermissions = (1 << 3),
+    Query = (1 << 4),
+    Create = (1 << 5),
+    ModifySchema = (1 << 6),
+
+    AllRealm = Read | Update | SetPermissions | ModifySchema,
+    AllClass = Read | Update | Create | Query | SetPermissions,
+    AllObject = Read | Update | Delete | SetPermissions,
+    All = (1 << 7) - 1
+};
+
 class Realm : public std::enable_shared_from_this<Realm> {
 public:
     // A callback function to be called during a migration for Automatic and
@@ -127,15 +165,23 @@ public:
     // functions which take a Schema from within the migration function.
     using MigrationFunction = std::function<void (SharedRealm old_realm, SharedRealm realm, Schema&)>;
 
-#if !WIN32
+    // A callback function to be called the first time when a schema is created.
+    // It is passed a SharedRealm which is in a write transaction with the schema
+    // initialized. So it is possible to create some initial objects inside the callback
+    // with the given SharedRealm. Those changes will be committed together with the
+    // schema creation in a single transaction.
+    using DataInitializationFunction = std::function<void (SharedRealm realm)>;
+
     // A callback function called when opening a SharedRealm when no cached
     // version of this Realm exists. It is passed the total bytes allocated for
     // the file (file size) and the total bytes used by data in the file.
     // Return `true` to indicate that an attempt to compact the file should be made
     // if it is possible to do so.
     // Won't compact the file if another process is accessing it.
+    //
+    // WARNING / FIXME: compact() should NOT be exposed publicly on Windows
+    // because it's not crash safe! It may corrupt your database if something fails
     using ShouldCompactOnLaunchFunction = std::function<bool (uint64_t total_bytes, uint64_t used_bytes)>;
-#endif
 
     struct Config {
         // Path and binary data are mutually exclusive
@@ -144,6 +190,10 @@ public:
         // User-supplied encryption key. Must be either empty or 64 bytes.
         std::vector<char> encryption_key;
 
+        // Core and Object Store will in some cases need to create named pipes alongside the Realm file.
+        // But on some filesystems this can be a problem (e.g. external storage on Android that uses FAT32).
+        // In order to work around this, a separate path can be specified for these files.
+        std::string fifo_files_fallback_path;
 
         bool in_memory = false;
         SchemaMode schema_mode = SchemaMode::Automatic;
@@ -151,22 +201,28 @@ public:
         // Optional schema for the file.
         // If the schema and schema version are supplied, update_schema() is
         // called with the supplied schema, version and migration function when
-        // the Realm is actually opened and not just retreived from the cache
+        // the Realm is actually opened and not just retrieved from the cache
         util::Optional<Schema> schema;
         uint64_t schema_version = -1;
         MigrationFunction migration_function;
 
-#if !WIN32
+        DataInitializationFunction initialization_function;
+
         // A callback function called when opening a SharedRealm when no cached
         // version of this Realm exists. It is passed the total bytes allocated for
         // the file (file size) and the total bytes used by data in the file.
         // Return `true` to indicate that an attempt to compact the file should be made
         // if it is possible to do so.
         // Won't compact the file if another process is accessing it.
+        //
+        // WARNING / FIXME: compact() should NOT be exposed publicly on Windows
+        // because it's not crash safe! It may corrupt your database if something fails
         ShouldCompactOnLaunchFunction should_compact_on_launch_function;
-#endif
 
-        bool read_only() const { return schema_mode == SchemaMode::ReadOnly; }
+        // WARNING: The original read_only() has been renamed to immutable().
+        bool immutable() const { return schema_mode == SchemaMode::Immutable; }
+        // FIXME: Rename this to read_only().
+        bool read_only_alternative() const { return schema_mode == SchemaMode::ReadOnlyAlternative; }
 
         // The following are intended for internal/testing purposes and
         // should not be publicly exposed in binding APIs
@@ -193,9 +249,12 @@ public:
         /// A data structure storing data used to configure the Realm for sync support.
         std::shared_ptr<SyncConfig> sync_config;
 
-        // FIXME: Realm Java manages sync at the Java level, so it needs to create Realms using the sync history
-        //        format.
+        // Open the Realm using the sync history mode even if a sync
+        // configuration is not supplied.
         bool force_sync_history = false;
+
+        // A factory function which produces an audit implementation.
+        std::function<std::shared_ptr<AuditInterface>()> audit_factory;
     };
 
     // Get a cached Realm or create a new one if no cached copies exists
@@ -203,9 +262,24 @@ public:
     // encryption key will raise an exception.
     static SharedRealm get_shared_realm(Config config);
 
+    // Get a Realm for the given execution context (or current thread if `none`)
+    // from the thread safe reference. May return a cached Realm or create a new one.
+    static SharedRealm get_shared_realm(ThreadSafeReference<Realm>, util::Optional<AbstractExecutionContextID> = util::none);
+
+#if REALM_ENABLE_SYNC
+    // Open a synchronized Realm and make sure it is fully up to date before
+    // returning it.
+    //
+    // It is possible to both cancel the download and listen to download progress
+    // using the `AsyncOpenTask` returned. Note that the download doesn't actually
+    // start until you call `AsyncOpenTask::start(callback)`
+    static std::shared_ptr<AsyncOpenTask> get_synchronized_realm(Config config);
+#endif
+
     // Updates a Realm to a given schema, using the Realm's pre-set schema mode.
     void update_schema(Schema schema, uint64_t version=0,
                        MigrationFunction migration_function=nullptr,
+                       DataInitializationFunction initialization_function=nullptr,
                        bool in_transaction=false);
 
     // Set the schema used for this Realm, but do not update the file's schema
@@ -222,11 +296,19 @@ public:
     Schema const& schema() const { return m_schema; }
     uint64_t schema_version() const { return m_schema_version; }
 
+    // Returns `true` if this Realm is a Partially synchronized Realm.
+    bool is_partial() const noexcept;
+
     void begin_transaction();
     void commit_transaction();
     void cancel_transaction();
     bool is_in_transaction() const noexcept;
+
     bool is_in_read_transaction() const { return !!m_group; }
+    VersionID read_transaction_version() const;
+    Group& read_group();
+
+    bool is_in_migration() const noexcept { return m_in_migration; }
 
     bool refresh();
     void set_auto_refresh(bool auto_refresh) { m_auto_refresh = auto_refresh; }
@@ -234,6 +316,9 @@ public:
     void notify();
 
     void invalidate();
+
+    // WARNING / FIXME: compact() should NOT be exposed publicly on Windows
+    // because it's not crash safe! It may corrupt your database if something fails
     bool compact();
     void write_copy(StringData path, BinaryData encryption_key);
     OwnedBinaryData write_copy();
@@ -267,6 +352,12 @@ public:
     template <typename T>
     T resolve_thread_safe_reference(ThreadSafeReference<T> reference);
 
+    ComputedPrivileges get_privileges();
+    ComputedPrivileges get_privileges(StringData object_type);
+    ComputedPrivileges get_privileges(RowExpr row);
+
+    AuditInterface* audit_context() const noexcept;
+
     static SharedRealm make_shared_realm(Config config, std::shared_ptr<_impl::RealmCoordinator> coordinator = nullptr) {
         struct make_shared_enabler : public Realm {
             make_shared_enabler(Config config, std::shared_ptr<_impl::RealmCoordinator> coordinator)
@@ -279,10 +370,8 @@ public:
     // without making it public to everyone
     class Internal {
         friend class _impl::CollectionNotifier;
-        friend class _impl::ListNotifier;
-        friend class _impl::ObjectNotifier;
+        friend class _impl::PartialSyncHelper;
         friend class _impl::RealmCoordinator;
-        friend class _impl::ResultsNotifier;
         friend class ThreadSafeReferenceBase;
         friend class GlobalNotifier;
         friend class TestHelper;
@@ -329,6 +418,8 @@ private:
     bool m_dynamic_schema = true;
 
     std::shared_ptr<_impl::RealmCoordinator> m_coordinator;
+    std::unique_ptr<sync::TableInfoCache> m_table_info_cache;
+    std::unique_ptr<sync::PermissionsCache> m_permissions_cache;
 
     // File format versions populated when a file format upgrade takes place during realm opening
     int upgrade_initial_version = 0, upgrade_final_version = 0;
@@ -336,6 +427,11 @@ private:
     // True while sending the notifications caused by advancing the read
     // transaction version, to avoid recursive notifications where possible
     bool m_is_sending_notifications = false;
+
+    // True while we're performing a schema migration via this Realm instance
+    // to allow for different behavior (such as allowing modifications to
+    // primary key values)
+    bool m_in_migration = false;
 
     void begin_read(VersionID);
 
@@ -350,14 +446,17 @@ private:
 
     void add_schema_change_handler();
     void cache_new_schema();
+    void translate_schema_error();
+    void notify_schema_changed();
+
+    bool init_permission_cache();
+    void invalidate_permission_cache();
 
 public:
     std::unique_ptr<BindingContext> m_binding_context;
 
-    // FIXME private
-    Group& read_group();
-
-    Replication *history() { return m_history.get(); }
+    // FIXME: This is currently needed by the adapter to get access to its changeset cooker
+    Replication* history() { return m_history.get(); }
 
     friend class _impl::RealmFriend;
 };
@@ -382,6 +481,9 @@ public:
         IncompatibleLockFile,
         /** Thrown if the file needs to be upgraded to a new format, but upgrades have been explicitly disabled. */
         FormatUpgradeRequired,
+        /** Thrown if the local copy of a synced Realm file was created using an incompatible version of Realm.
+         The specified path is where the local file was moved for recovery. */
+        IncompatibleSyncedRealm,
     };
     RealmFileException(Kind kind, std::string path, std::string message, std::string underlying)
     : std::runtime_error(std::move(message)), m_kind(kind), m_path(std::move(path)), m_underlying(std::move(underlying)) {}

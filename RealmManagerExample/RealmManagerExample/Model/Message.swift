@@ -9,8 +9,9 @@
 import Foundation
 import RealmSwift
 
+@objcMembers
 class Message: Object {
-    var content: String = ""
+    dynamic var content: String = ""
     
     override static func primaryKey() -> String? {
         return "content"
