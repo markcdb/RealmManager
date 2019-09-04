@@ -39,10 +39,15 @@ class ViewController: UIViewController {
         return alertController
     }()
 
+    var manager: RealmManager<Message>?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         navigationItem.leftBarButtonItem = editButtonItem
+        
+        manager = RealmManager(configuration: nil,
+                               fileUrl: nil)
         
         self.fetch()
     }
@@ -56,17 +61,16 @@ class ViewController: UIViewController {
         if arrMessage != nil {
             arrMessage?.removeAll()
         }
+        
         //Fetches all objects inside 'Message' model class
-        RealmManager.fetch(model: "Message", condition: nil, completion: { (result) in
-            
-            for message in result {
-                if let msg = message as? Message {
-                    self.arrMessage?.append(msg)
-                }
-            }
-            
-            print(self.arrMessage!)
-            self.tblMessage.reloadData()
+        manager?.fetchWith(condition: nil,
+                           completion: { result in
+                            for message in result {
+                                self.arrMessage?.append(message)
+                            }
+                            
+                            print(self.arrMessage!)
+                            self.tblMessage.reloadData()
         })
     }
     
@@ -79,12 +83,13 @@ class ViewController: UIViewController {
          insertion of the new data to 'Message' model class
          */
         
-        RealmManager.addOrUpdate(object: [msg], completion: { (error) in
-            if let err = error {
-                print("Error \(err.localizedDescription)")
-            } else {
-                self.fetch()
-            }
+        manager?.addOrUpdate(object: msg,
+                             completion: { error in
+                                if let err = error {
+                                    print("Error \(err.localizedDescription)")
+                                } else {
+                                    self.fetch()
+                                }
         })
     }
     
@@ -137,15 +142,16 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
                  providing a predicate and passing it to condition: parameter, if found a match,
                  it will  delete the object inside the realmdb
                  */
-                RealmManager.delete(condition: "content == '\(arM[indexPath.row].value(forKey: "content") as! String)'", completion: { (error) in
-                    if let err = error {
-                        
-                        print(err.localizedDescription)
-                    } else {
-                        self.arrMessage?.remove(at: indexPath.row)
-                        tableView.deleteRows(at: [indexPath], with: .fade)
-                        print("Deleted. New list: \(String(describing: self.arrMessage))")
-                    }
+                manager?.deleteWithObject(nil,
+                                          condition: "content == '\(arM[indexPath.row].value(forKey: "content") as! String)'", completion: { error in
+                                            if let err = error {
+                                                
+                                                print(err.localizedDescription)
+                                            } else {
+                                                self.arrMessage?.remove(at: indexPath.row)
+                                                tableView.deleteRows(at: [indexPath], with: .fade)
+                                                print("Deleted. New list: \(String(describing: self.arrMessage))")
+                                            }
                 })
             }
         } else if editingStyle == .insert {

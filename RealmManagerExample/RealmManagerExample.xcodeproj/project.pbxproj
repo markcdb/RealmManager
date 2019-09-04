@@ -15,6 +15,7 @@
 		8AB3213B1F5BEDA700C658A4 /* RealmManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB3213A1F5BEDA700C658A4 /* RealmManager.swift */; };
 		8AB321431F5BFBE500C658A4 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB321421F5BFBE500C658A4 /* Message.swift */; };
 		93AD519D53F14B1FAEAD9AF2 /* Pods_RealmManagerExample.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9274FADBA78F594515278B56 /* Pods_RealmManagerExample.framework */; };
+		F8FCEE5E231FBEB900C0F20A /* RealmThread.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8FCEE5D231FBEB900C0F20A /* RealmThread.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 		8AB321421F5BFBE500C658A4 /* Message.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Message.swift; sourceTree = "<group>"; };
 		9274FADBA78F594515278B56 /* Pods_RealmManagerExample.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RealmManagerExample.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		F40855C4A366BC148ED9081F /* Pods-RealmManagerExample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RealmManagerExample.release.xcconfig"; path = "Pods/Target Support Files/Pods-RealmManagerExample/Pods-RealmManagerExample.release.xcconfig"; sourceTree = "<group>"; };
+		F8FCEE5D231FBEB900C0F20A /* RealmThread.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealmThread.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -81,6 +83,7 @@
 			isa = PBXGroup;
 			children = (
 				8AB3213A1F5BEDA700C658A4 /* RealmManager.swift */,
+				F8FCEE5D231FBEB900C0F20A /* RealmThread.swift */,
 			);
 			name = RealmManager;
 			path = ../../RealmManager;
@@ -230,6 +233,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8AB3211C1F5BEAE100C658A4 /* ViewController.swift in Sources */,
+				F8FCEE5E231FBEB900C0F20A /* RealmThread.swift in Sources */,
 				8AB321431F5BFBE500C658A4 /* Message.swift in Sources */,
 				8AB3211A1F5BEAE100C658A4 /* AppDelegate.swift in Sources */,
 				8AB3213B1F5BEDA700C658A4 /* RealmManager.swift in Sources */,
