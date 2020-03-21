@@ -12,17 +12,17 @@ Uses [RealmSwift][0]
 $ gem install cocoapods
 ```
 
-> CocoaPods 1.1.0+ is required to build RealmManager 1.0.0+.
+> CocoaPods 1.9.1+ is required to build RealmManager 4.3.0+.
 
 To integrate RealmManager into your Xcode project using CocoaPods, specify it in your `Podfile`:
 
 ```ruby
 source 'https://github.com/CocoaPods/Specs.git'
-platform :ios, '10.0'
+platform :ios, '12.0'
 use_frameworks!
 
 target '<Your Target Name>' do
-    pod 'RealmManager', '~> 1.0.8'
+    pod 'RealmManager', '~> 4.3.0'
 end
 ```
 
@@ -37,6 +37,16 @@ If you prefer not to use any of the aforementioned dependency managers, you can 
 
 ## Usage
 
+### Initializing
+
+You can explicitly state the Object you'll gonna be managing for the session during initialization:
+
+```swift
+    //Object must be a subclass of Realm.Object
+    let manager = RealmManager<Object> = RealmManager(configuration: nil,
+                                                      fileUrl: nil)
+```
+
 ### Add or Update an object to existing model:
 
 You can simply use this method to add or update an object to an existing model
@@ -44,9 +54,9 @@ You can simply use this method to add or update an object to an existing model
 ##### Note: This repo assumes each object as unique, thus the model needs to have a primaryKey
  
 ```swift
-    RealmManager.addOrUpdate(model: "MODEL_NAME", 
-                                object: ["foo":"bar"], 
-                                completionHandler: { (error) in
+    //object must be a subclass of Realm.Object
+    RealmManager.addOrUpdate(object: object, 
+                             completion: { (error) in
         //Code goes here
     })
 ```
@@ -60,13 +70,13 @@ or if you need to have a configuration for your Realm instance
     "group.com.directurl")!.appendingPathComponent("db.realm")
     
     config.fileURL = directory
-    
+       
+    //Foo must subclass to Realm.Object
     let foo = Foo(description:"Bar")
 
     RealmManager.addOrUpdate(configuration: config, 
-                                model: "MODEL_NAME", 
-                                object: foo, 
-                                completionHandler: { (error) in
+                             object: foo, 
+                             completion: { (error) in
         //Code goes here
     })
 ```
@@ -78,11 +88,11 @@ object can be an instance of ```Object```,```Array```,```Dictionary<AnyHashable,
 Fetching an object from the Realm DB:
 
 ```swift
+    //Foo must subclass to Realm.Object
     let foo = Foo(description:"Bar")
             
-    RealmManager.fetch(model: "MODEL_NAME", 
-                       condition: "description == '\(foo.description)'", 
-                       completionHandler: { (result) in
+    RealmManager.fetch(condition: "description == '\(foo.description)'", 
+                       completion: { (result) in
                        
         //Your code can do anything with 'result' >:)
     })
@@ -94,9 +104,9 @@ Fetching an object from the Realm DB:
 Map and Delete an object by using predicate:
 
 ```swift
-    RealmManager.delete(model: "MODEL_NAME",
+    RealmManager.delete(object: nil,
                         condition: "description = \(foo.description)",
-                        completionHandler: { (error) in
+                        completion: { (error) in
 
         //Code goes here
     })     
@@ -106,7 +116,7 @@ or if you have the object and not need to map it:
 
 ```swift
     RealmManager.deleteObject(object: foo, 
-                              completionHandler: { (error) in
+                              completion: { (error) in
         //Code goes here
     })
 ```
