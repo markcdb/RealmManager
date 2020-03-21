@@ -41,26 +41,37 @@ public class RealmManager<T> {
     
     var background: RealmThread?
     
+    private var token: NotificationToken?
+    private var configuration: Realm.Configuration?
+    private var fileUrl: URL?
+    
     init(configuration: Realm.Configuration?,
          fileUrl: URL?) {
+        
+        self.configuration = configuration
+        self.fileUrl = fileUrl
         
         background = RealmThread(start: true,
                                  queue: nil)
         
         background?.enqueue {[weak self] in
             guard let self = self else { return }
-            
-            do {
-                if let config = configuration {
-                    self.realm = try Realm(configuration: config)
-                } else if let fileUrl = fileUrl {
-                    self.realm = try Realm(fileURL: fileUrl)
-                } else {
-                    self.realm = try Realm()
-                }
-            } catch let error {
-                fatalError(error.localizedDescription)
+            self.realm = self.createRealm(from: configuration, fileUrl: fileUrl)
+        }
+    }
+    
+    private func createRealm(from configuration: Realm.Configuration?,
+                             fileUrl: URL?) -> Realm {
+        do {
+            if let config = configuration {
+                return try Realm(configuration: config)
+            } else if let fileUrl = fileUrl {
+                return try Realm(fileURL: fileUrl)
+            } else {
+                return try Realm()
             }
+        } catch let error {
+            fatalError(error.localizedDescription)
         }
     }
 }
@@ -92,7 +103,7 @@ extension RealmManager {
         do {
             try realm.write {
                 realm.add(object,
-                          update: .error)
+                          update: .modified)
                 
                 DispatchQueue.main.async {
                     completion(nil)
@@ -121,22 +132,18 @@ extension RealmManager {
     
     fileprivate func fetch<Q: Object>(condition: String?,
                                       completion: @escaping(_ result: Results<Q>) -> Void) {
-        
-        guard let realm = realm else { return }
+        let realm = createRealm(from: configuration, fileUrl: fileUrl)
+        debugPrint(realm.refresh())
         
         // All object inside the model passed.
-        var bufferObjects = realm.objects(Q.self)
-        
+        var objects = realm.objects(Q.self)
+                
         if let cond = condition {
             // filters the result if condition exists
-            bufferObjects = bufferObjects.filter(cond)
+            objects = objects.filter(cond)
         }
-        
-        DispatchQueue.main.async {
-            if let safe = bufferObjects.copy() as? Results<Q> {
-                completion(safe)
-            }
-        }
+
+        completion(objects)
     }
 }
 
@@ -230,12 +237,7 @@ extension RealmManager where T: Object {
     public func fetchWith(condition: String?,
                           completion:@escaping(_ result: Results<T>) -> Void) {
         
-        background?.enqueue {[weak self] in
-            guard let self = self else { return }
-            
-            self.fetch(condition: condition,
-                       completion: completion)
-        }
+        fetch(condition: condition, completion: completion)
     }
     
     /// Deletes an object from the existing model

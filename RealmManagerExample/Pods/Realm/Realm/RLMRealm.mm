@@ -48,6 +48,7 @@
 
 #if REALM_ENABLE_SYNC
 #import "RLMSyncManager_Private.h"
+#import "RLMSyncSession_Private.hpp"
 #import "RLMSyncUtil_Private.hpp"
 
 #import "sync/async_open_task.hpp"
@@ -106,6 +107,13 @@ static void RLMAddSkipBackupAttributeToItemAtPath(std::string const& path) {
     }
 }
 @end
+
+#if !REALM_ENABLE_SYNC
+@interface RLMAsyncOpenTask : NSObject
+@end
+@implementation RLMAsyncOpenTask
+@end
+#endif
 
 static bool shouldForciblyDisableEncryption() {
     static bool disableEncryption = getenv("REALM_DISABLE_ENCRYPTION");
@@ -227,10 +235,15 @@ static void waitForPartialSyncSubscriptions(Realm::Config const& config) {
 #endif
 }
 
-+ (void)asyncOpenWithConfiguration:(RLMRealmConfiguration *)configuration
-                     callbackQueue:(dispatch_queue_t)callbackQueue
-                          callback:(RLMAsyncOpenRealmCallback)callback {
-    static dispatch_queue_t queue = dispatch_queue_create("io.realm.asyncOpenDispatchQueue", DISPATCH_QUEUE_CONCURRENT);
+static dispatch_queue_t s_async_open_queue = dispatch_queue_create("io.realm.asyncOpenDispatchQueue",
+                                                                   DISPATCH_QUEUE_CONCURRENT);
+void RLMSetAsyncOpenQueue(dispatch_queue_t queue) {
+    s_async_open_queue = queue;
+}
+
++ (RLMAsyncOpenTask *)asyncOpenWithConfiguration:(RLMRealmConfiguration *)configuration
+                                   callbackQueue:(dispatch_queue_t)callbackQueue
+                                        callback:(RLMAsyncOpenRealmCallback)callback {
     auto openCompletion = [=](ThreadSafeReference<Realm> ref, std::exception_ptr err) {
         @autoreleasepool {
             if (err) {
@@ -263,7 +276,7 @@ static void waitForPartialSyncSubscriptions(Realm::Config const& config) {
                 // We need to dispatch back to the work queue to wait for the
                 // subscriptions as we're currently running on the sync worker
                 // thread and blocking it to wait for subscriptions means no syncing
-                dispatch_async(queue, ^{
+                dispatch_async(s_async_open_queue, ^{
                     @autoreleasepool {
                         waitForPartialSyncSubscriptions(realm->config());
                         complete();
@@ -276,12 +289,15 @@ static void waitForPartialSyncSubscriptions(Realm::Config const& config) {
         }
     };
 
-    dispatch_async(queue, ^{
+    RLMAsyncOpenTask *ret = [RLMAsyncOpenTask new];
+    dispatch_async(s_async_open_queue, ^{
         @autoreleasepool {
             Realm::Config& config = configuration.config;
             if (config.sync_config) {
 #if REALM_ENABLE_SYNC
-                realm::Realm::get_synchronized_realm(config)->start(openCompletion);
+                auto task = realm::Realm::get_synchronized_realm(config);
+                ret.task = task;
+                task->start(openCompletion);
 #else
                 @throw RLMException(@"Realm was not built with sync enabled");
 #endif
@@ -296,6 +312,7 @@ static void waitForPartialSyncSubscriptions(Realm::Config const& config) {
             }
         }
     });
+    return ret;
 }
 
 // ARC tries to eliminate calls to autorelease when the value is then immediately
@@ -630,15 +647,8 @@ REALM_NOINLINE static void translateSharedGroupOpenException(RLMRealmConfigurati
     [self commitWriteTransaction:nil];
 }
 
-- (BOOL)commitWriteTransaction:(NSError **)outError {
-    try {
-        _realm->commit_transaction();
-        return YES;
-    }
-    catch (...) {
-        RLMRealmTranslateException(outError);
-        return NO;
-    }
+- (BOOL)commitWriteTransaction:(NSError **)error {
+    return [self commitWriteTransactionWithoutNotifying:@[] error:error];
 }
 
 - (BOOL)commitWriteTransactionWithoutNotifying:(NSArray<RLMNotificationToken *> *)tokens error:(NSError **)error {
@@ -664,10 +674,18 @@ REALM_NOINLINE static void translateSharedGroupOpenException(RLMRealmConfigurati
 }
 
 - (BOOL)transactionWithBlock:(__attribute__((noescape)) void(^)(void))block error:(NSError **)outError {
+    return [self transactionWithoutNotifying:@[] block:block error:outError];
+}
+
+- (void)transactionWithoutNotifying:(NSArray<RLMNotificationToken *> *)tokens block:(__attribute__((noescape)) void(^)(void))block {
+    [self transactionWithoutNotifying:tokens block:block error:nil];
+}
+
+- (BOOL)transactionWithoutNotifying:(NSArray<RLMNotificationToken *> *)tokens block:(__attribute__((noescape)) void(^)(void))block error:(NSError **)error {
     [self beginWriteTransaction];
     block();
     if (_realm->is_in_transaction()) {
-        return [self commitWriteTransaction:outError];
+        return [self commitWriteTransactionWithoutNotifying:tokens error:error];
     }
     return YES;
 }
@@ -908,6 +926,44 @@ REALM_NOINLINE static void translateSharedGroupOpenException(RLMRealmConfigurati
     }
 
     return NO;
+}
+
++ (BOOL)fileExistsForConfiguration:(RLMRealmConfiguration *)config {
+    return [NSFileManager.defaultManager fileExistsAtPath:config.pathOnDisk];
+}
+
++ (BOOL)deleteFilesForConfiguration:(RLMRealmConfiguration *)config error:(NSError **)error {
+    auto& path = config.config.path;
+    bool anyDeleted = false;
+    NSError *localError;
+    bool didCall = SharedGroup::call_with_lock(path, [&](auto const& path) {
+        NSURL *url = [NSURL fileURLWithPath:@(path.c_str())];
+        NSFileManager *fm = NSFileManager.defaultManager;
+
+        anyDeleted = [fm removeItemAtURL:url error:&localError];
+        if (localError && localError.code != NSFileNoSuchFileError) {
+            return;
+        }
+
+        [fm removeItemAtURL:[url URLByAppendingPathExtension:@"management"] error:&localError];
+        if (localError && localError.code != NSFileNoSuchFileError) {
+            return;
+        }
+
+        [fm removeItemAtURL:[url URLByAppendingPathExtension:@"note"] error:&localError];
+    });
+    if (error && localError && localError.code != NSFileNoSuchFileError) {
+        *error = localError;
+    }
+    else if (!didCall) {
+        if (error) {
+            NSString *msg = [NSString stringWithFormat:@"Realm file at path %s cannot be deleted because it is currently opened.", path.c_str()];
+            *error = [NSError errorWithDomain:RLMErrorDomain
+                                         code:RLMErrorAlreadyOpen
+                                     userInfo:@{NSLocalizedDescriptionKey: msg}];
+        }
+    }
+    return anyDeleted;
 }
 
 #if REALM_ENABLE_SYNC
