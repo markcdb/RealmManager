@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'RealmManager'
-  s.version          = '1.0.8'
+  s.version          = '1.0.9'
   s.summary          = 'An easier way of persisting data using Realm Mobile Database'
   s.dependency         'RealmSwift'
   s.homepage         = 'https://github.com/markcdb/RealmManager'
