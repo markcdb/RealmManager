@@ -75,8 +75,8 @@ or if you need to have a configuration for your Realm instance
     let foo = Foo(description:"Bar")
 
     RealmManager.addOrUpdate(configuration: config, 
-                                object: foo, 
-                                completion: { (error) in
+                             object: foo, 
+                             completion: { (error) in
         //Code goes here
     })
 ```
