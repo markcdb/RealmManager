@@ -1,6 +1,0 @@
-use_frameworks!
-
-target 'RealmManagerExample' do
-   pod 'RealmSwift', '4.3.2'
-end
-
