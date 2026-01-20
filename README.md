@@ -124,7 +124,7 @@ or if you have the object and not need to map it:
 
 ## Author
 
-markcdb , mark.buot1394@gmail.com
+Mark Christian
 
 ## License
 
